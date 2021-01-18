@@ -29,7 +29,9 @@
 
 void WriteString(ofstream& bin, const string& value)
 {
-    bin.write(value.data(), value.length() + 1);
+    auto length = (uint32_t)value.length();
+    bin.write((const char*)&length, sizeof(length));
+    bin.write(value.data(), value.length());
 }
 
 void WriteShort(ofstream& bin, int16_t value)

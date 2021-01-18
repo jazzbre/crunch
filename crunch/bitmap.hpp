@@ -35,16 +35,17 @@ using namespace std;
 
 struct Bitmap
 {
+    int index;
     string name;
     int width;
     int height;
     int frameX;
     int frameY;
     int frameW;
-    int frameH;
+    int frameH;    
     uint32_t* data;
     size_t hashValue;
-    Bitmap(const string& file, const string& name, bool premultiply, bool trim);
+    Bitmap(int index, const string& file, const string& name, bool premultiply, bool trim, int downScale = 0, float alphaPower = 0.0f);
     Bitmap(int width, int height);
     ~Bitmap();
     void SaveAs(const string& file);

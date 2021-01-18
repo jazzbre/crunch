@@ -28,13 +28,29 @@
 #include <iostream>
 #define LODEPNG_NO_COMPILE_CPP
 #include "lodepng.h"
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#include "stb_image_resize.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 #include <algorithm>
 #include "hash.hpp"
 
 using namespace std;
 
-Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool trim)
-: name(name)
+inline void ImageAlphaPower(unsigned char* pdata, unsigned int pw, unsigned int ph, float alphaPower) {
+    for (unsigned int y = 0; y < ph; ++y) {
+        for (unsigned int x = 0; x < pw; ++x) {
+            auto pixel = pdata + (y * pw + x) * 4;
+            if (pixel[3] > 0 && pixel[3] < 255) {
+                auto value = ceilf(powf((float)pixel[3] / 255.0f, alphaPower) * 255.0f);
+                pixel[3] = max((unsigned char)0, min((unsigned char)255, (unsigned char)value));
+            }
+        }
+    }
+}
+
+Bitmap::Bitmap(int index, const string& file, const string& name, bool premultiply, bool trim, int downScale, float alphaPower)
+: index(index), name(name)
 {
     //Load the png file
     unsigned char* pdata;
@@ -44,6 +60,47 @@ Bitmap::Bitmap(const string& file, const string& name, bool premultiply, bool tr
         cerr << "failed to load png: " << file << endl;
         exit(EXIT_FAILURE);
     }
+    if (downScale > 1) {
+#if 1
+        int scale = 1;
+        while (scale != downScale) {
+            auto rw = pw / 2;
+            auto rh = ph / 2;
+            auto rdata = (unsigned char*)malloc(rw * rh * 4);
+            stbir_resize_uint8_generic(pdata, pw, ph, pw * 4, rdata, rw, rh, rw * 4, 4, 3, 0, STBIR_EDGE_CLAMP, STBIR_FILTER_MITCHELL, STBIR_COLORSPACE_LINEAR, 0);
+            if (alphaPower > 0) {
+                ImageAlphaPower(rdata, rw, rh, alphaPower);
+            }
+            pw = rw;
+            ph = rh;
+            free(pdata);
+            pdata = rdata;
+            scale <<= 1;
+        }
+#else
+        auto rw = pw / downScale;
+        auto rh = ph / downScale;
+        auto rdata = (unsigned char*)malloc(rw * rh * 4);
+        for (unsigned int y = 0; y < rh; ++y) {
+            for (unsigned int x = 0; x < rw; ++x) {
+                auto px = min(pw - 1, x * downScale);
+                auto py = min(ph - 1, y * downScale);
+                memcpy(rdata + (y * rw + x) * 4, pdata + (py * pw + px) * 4, 4);
+            }
+        }
+        if (alphaPower > 0) {
+            ImageAlphaPower(rdata, rw, rh, alphaPower);
+        }
+        pw = rw;
+        ph = rh;
+        free(pdata);
+        pdata = rdata;
+#endif
+    }
+    else if (alphaPower > 0) {
+        ImageAlphaPower(pdata, pw, ph, alphaPower);
+    }
+
     int w = static_cast<int>(pw);
     int h = static_cast<int>(ph);
     uint32_t* pixels = reinterpret_cast<uint32_t*>(pdata);
@@ -159,11 +216,14 @@ void Bitmap::SaveAs(const string& file)
     unsigned char* pdata = reinterpret_cast<unsigned char*>(data);
     unsigned int pw = static_cast<unsigned int>(width);
     unsigned int ph = static_cast<unsigned int>(height);
+    /*
     if (lodepng_encode32_file(file.data(), pdata, pw, ph))
     {
         cout << "failed to save png: " << file << endl;
         exit(EXIT_FAILURE);
     }
+    */
+    stbi_write_png(file.c_str(), width, height, 4, pdata, width * 4);
 }
 
 void Bitmap::CopyPixels(const Bitmap* src, int tx, int ty)

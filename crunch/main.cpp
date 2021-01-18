@@ -34,7 +34,7 @@
  options:
     -d  --default           use default settings (-x -p -t -u)
     -x  --xml               saves the atlas data as a .xml file
-    -b  --binary            saves the atlas data as a .bin file
+    -b  --binary            saves the atlas data as a .atlasbin file
     -j  --json              saves the atlas data as a .json file
     -p  --premultiply       premultiplies the pixels of the bitmaps by their alpha channel
     -t  --trim              trims excess transparency off the bitmaps
@@ -44,6 +44,8 @@
     -r  --rotate            enabled rotating bitmaps 90 degrees clockwise when packing
     -s# --size#             max atlas size (# can be 4096, 2048, 1024, 512, 256, 128, or 64)
     -p# --pad#              padding between images (# can be from 0 to 16)
+    -w# --downscale#        downscale by a factor of (# can be 1, 2, 4, 8, 16, 32)
+    -a# --alphapower$       alpha power curve (# can be any float larger than 0)
  
  binary format:
     [int16] num_textures (below block is repeated this many times)
@@ -75,10 +77,14 @@
 #include "hash.hpp"
 #include "str.hpp"
 
+#undef LoadBitmap
+
 using namespace std;
 
 static int optSize;
 static int optPadding;
+static int optDownScale;
+static float optAlphaPower;
 static bool optXml;
 static bool optBinary;
 static bool optJson;
@@ -132,7 +138,7 @@ static void LoadBitmap(const string& prefix, const string& path)
     if (optVerbose)
         cout << '\t' << PathToStr(path) << endl;
     
-    bitmaps.push_back(new Bitmap(PathToStr(path), prefix + GetFileName(PathToStr(path)), optPremultiply, optTrim));
+    bitmaps.push_back(new Bitmap((int)bitmaps.size(), PathToStr(path), GetFileName(PathToStr(path)), optPremultiply, optTrim, optDownScale, optAlphaPower));
 }
 
 static void LoadBitmaps(const string& root, const string& prefix)
@@ -154,7 +160,7 @@ static void LoadBitmaps(const string& root, const string& prefix)
                 LoadBitmaps(PathToStr(file.path), prefix + PathToStr(file.name) + "/");
         }
         else if (PathToStr(file.extension) == "png")
-            LoadBitmap(prefix, file.path);
+            LoadBitmap(prefix, PathToStr(wstring(file.path)));
         
         tinydir_next(&dir);
     }
@@ -196,6 +202,27 @@ static int GetPadding(const string& str)
     cerr << "invalid padding value: " << str << endl;
     exit(EXIT_FAILURE);
     return 1;
+}
+
+static int GetDownScale(const string& str)
+{
+    if (str == "32")
+        return 32;
+    if (str == "16")
+        return 16;
+    if (str == "8")
+        return 8;
+    if (str == "4")
+        return 4;
+    if (str == "2")
+        return 2;
+    cerr << "invalid downscale: " << str << endl;
+    exit(EXIT_FAILURE);
+    return 0;
+}
+
+static float GetFloat(const string& str) {
+    return (float)atof(str.c_str());
 }
 
 int main(int argc, const char* argv[])
@@ -267,6 +294,14 @@ int main(int argc, const char* argv[])
             optPadding = GetPadding(arg.substr(5));
         else if (arg.find("-p") == 0)
             optPadding = GetPadding(arg.substr(2));
+        else if (arg.find("--downscale") == 0)
+            optDownScale = GetDownScale(arg.substr(11));
+        else if (arg.find("-w") == 0)
+            optDownScale = GetDownScale(arg.substr(2));
+        else if (arg.find("--alphapower") == 0)
+            optAlphaPower = GetFloat(arg.substr(12));
+        else if (arg.find("-a") == 0)
+            optAlphaPower = GetFloat(arg.substr(2));
         else
         {
             cerr << "unexpected argument: " << arg << endl;
@@ -299,7 +334,7 @@ int main(int argc, const char* argv[])
     
     /*-d  --default           use default settings (-x -p -t -u)
     -x  --xml               saves the atlas data as a .xml file
-    -b  --binary            saves the atlas data as a .bin file
+    -b  --binary            saves the atlas data as a .atlasbin file
     -j  --json              saves the atlas data as a .json file
     -p  --premultiply       premultiplies the pixels of the bitmaps by their alpha channel
     -t  --trim              trims excess transparency off the bitmaps
@@ -324,11 +359,12 @@ int main(int argc, const char* argv[])
         cout << "\t--rotate: " << (optRotate ? "true" : "false") << endl;
         cout << "\t--size: " << optSize << endl;
         cout << "\t--pad: " << optPadding << endl;
+        cout << "\t--downscale: " << optDownScale<< endl;
     }
     
     //Remove old files
     RemoveFile(outputDir + name + ".hash");
-    RemoveFile(outputDir + name + ".bin");
+    RemoveFile(outputDir + name + ".atlasbin");
     RemoveFile(outputDir + name + ".xml");
     RemoveFile(outputDir + name + ".json");
     for (size_t i = 0; i < 16; ++i)
@@ -345,6 +381,7 @@ int main(int argc, const char* argv[])
             LoadBitmaps(inputs[i], "");
     }
     
+    auto bitmapsOrder = bitmaps;
     //Sort the bitmaps by area
     sort(bitmaps.begin(), bitmaps.end(), [](const Bitmap* a, const Bitmap* b) {
         return (a->width * a->height) < (b->width * b->height);
@@ -368,25 +405,29 @@ int main(int argc, const char* argv[])
         }
     }
     
+    if (packers.size() > 1) {
+        cerr << "packing failed, could not fit all in one bitmap!" << endl;
+        return EXIT_FAILURE;
+    }
+
     //Save the atlas image
     for (size_t i = 0; i < packers.size(); ++i)
     {
         if (optVerbose)
             cout << "writing png: " << outputDir << name << to_string(i) << ".png" << endl;
-        packers[i]->SavePng(outputDir + name + to_string(i) + ".png");
+        packers[i]->SavePng(outputDir + name + ".png");
     }
     
     //Save the atlas binary
     if (optBinary)
     {
         if (optVerbose)
-            cout << "writing bin: " << outputDir << name << ".bin" << endl;
-        
-        ofstream bin(outputDir + name + ".bin", ios::binary);
-        WriteShort(bin, (int16_t)packers.size());
-        for (size_t i = 0; i < packers.size(); ++i)
-            packers[i]->SaveBin(name + to_string(i), bin, optTrim, optRotate);
-        bin.close();
+            cout << "writing bin: " << outputDir << name << ".atlasbin" << endl;
+                
+        for (size_t i = 0; i < packers.size(); ++i) {
+            ofstream bin(outputDir + name + ".png.atlasbin", ios::binary);
+            packers[i]->SaveBin(name, bin, optTrim, optRotate);
+        }        
     }
     
     //Save the atlas xml
@@ -425,7 +466,7 @@ int main(int argc, const char* argv[])
     }
     
     //Save the new hash
-    SaveHash(newHash, outputDir + name + ".hash");
+    //SaveHash(newHash, outputDir + name + ".hash");
     
     return EXIT_SUCCESS;
 }

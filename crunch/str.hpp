@@ -35,6 +35,7 @@ using namespace std;
 #include <codecvt>
 wstring StrToPath(const string& str);
 string PathToStr(const wstring& str);
+string PathToStr(const string& str);
 #else
 const string& StrToPath(const string& str);
 const string& PathToStr(const string& str);

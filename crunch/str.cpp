@@ -39,6 +39,10 @@ string PathToStr(const wstring& str)
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
     return converter.to_bytes(str);
 }
+string PathToStr(const string& str)
+{
+    return str;
+}
 #else
 const string& StrToPath(const string& str)
 {

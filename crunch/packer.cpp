@@ -30,6 +30,7 @@
 #include "binary.hpp"
 #include <iostream>
 #include <algorithm>
+#include <map>
 
 using namespace std;
 using namespace rbp;
@@ -142,10 +143,14 @@ void Packer::SaveXml(const string& name, ofstream& xml, bool trim, bool rotate)
 
 void Packer::SaveBin(const string& name, ofstream& bin, bool trim, bool rotate)
 {
-    WriteString(bin, name);
     WriteShort(bin, (int16_t)bitmaps.size());
-    for (size_t i = 0, j = bitmaps.size(); i < j; ++i)
+    map<int, int> sortedBitmaps;
+    for (size_t i = 0; i < bitmaps.size(); ++i) {
+        sortedBitmaps.insert({ bitmaps[i]->index, i });
+    }
+    for (auto& pair : sortedBitmaps)
     {
+        auto i = pair.second;
         WriteString(bin, bitmaps[i]->name);
         WriteShort(bin, (int16_t)points[i].x);
         WriteShort(bin, (int16_t)points[i].y);
