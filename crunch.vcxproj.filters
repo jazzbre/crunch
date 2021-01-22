@@ -59,9 +59,6 @@
     <ClCompile Include="crunch\lodepng.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="crunch\main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="crunch\MaxRectsBinPack.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -75,6 +72,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="crunch\str.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="crunch\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
