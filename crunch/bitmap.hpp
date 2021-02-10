@@ -52,6 +52,7 @@ struct Bitmap {
     void CopyPixelsRot(const Bitmap* src, int tx, int ty);
     void CopyPixelsFromOffset(const Bitmap* src, int tx, int ty);
     bool Equals(const Bitmap* other) const;
+    void RandomizeZeroAlphaColors();
 };
 
 #endif

@@ -1,15 +1,15 @@
 /*
- 
+
 
 
 
  MIT License
- 
+
 
 
 
  Copyright (c) 2017 Chevy Ray Johnston
- 
+
 
 
 
@@ -19,13 +19,13 @@
  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  copies of the Software, and to permit persons to whom the Software is
  furnished to do so, subject to the following conditions:
- 
+
 
 
 
  The above copyright notice and this permission notice shall be included in all
  copies or substantial portions of the Software.
- 
+
 
 
 
@@ -36,25 +36,25 @@
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
- 
+
 
 
 
  crunch - command line texture packer
  ====================================
- 
+
 
 
 
  usage:
     crunch [OUTPUT] [INPUT1,INPUT2,INPUT3...] [OPTIONS...]
- 
+
 
 
 
  example:
     crunch bin/atlases/atlas assets/characters,assets/tiles -p -t -v -u -r
- 
+
 
 
 
@@ -73,7 +73,7 @@
     -p# --pad#              padding between images (# can be from 0 to 16)
     -w# --downscale#        downscale by a factor of (# can be 1, 2, 4, 8, 16, 32)
     -a# --alphapower$       alpha power curve (# can be any float larger than 0)
- 
+
 
 
 
@@ -427,6 +427,10 @@ int main(int argc, const char* argv[]) {
             LoadBitmap("", inputs[i]);
         else
             LoadBitmaps(inputs[i], "");
+    }
+
+    for (auto bitmap : bitmaps) {
+        bitmap->RandomizeZeroAlphaColors();
     }
 
     auto bitmapsOrder = bitmaps;

@@ -1,19 +1,19 @@
 /*
- 
+ 
  MIT License
- 
+ 
  Copyright (c) 2017 Chevy Ray Johnston
- 
+ 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
  in the Software without restriction, including without limitation the rights
  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  copies of the Software, and to permit persons to whom the Software is
  furnished to do so, subject to the following conditions:
- 
+ 
  The above copyright notice and this permission notice shall be included in all
  copies or substantial portions of the Software.
- 
+ 
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -21,7 +21,7 @@
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
- 
+ 
 */
 
 #include "bitmap.hpp"
@@ -233,4 +233,31 @@ bool Bitmap::Equals(const Bitmap* other) const {
     if (width == other->width && height == other->height)
         return memcmp(data, other->data, sizeof(uint32_t) * width * height) == 0;
     return false;
+}
+
+void Bitmap::RandomizeZeroAlphaColors() {
+    static std::vector<uint32_t> nonZeroColors;
+    nonZeroColors.clear();
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            auto& color = data[y * width + x];
+            auto alpha = color >> 24;
+            if (alpha == 0) {
+                if (nonZeroColors.size() == 0) {
+                    for (int yy = 0; yy < height; ++yy) {
+                        for (int xx = 0; xx < width; ++xx) {
+                            const auto addColor = data[yy * width + xx];
+                            if (addColor >> 24 > 0) {
+                                nonZeroColors.push_back(addColor);
+                            }
+                        }
+                    }
+                    if (nonZeroColors.size() == 0) {
+                        return;
+                    }
+                }
+                color = nonZeroColors[(y * width + x) % nonZeroColors.size()] & 0x00ffffff;
+            }
+        }
+    }
 }
